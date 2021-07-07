@@ -1,4 +1,4 @@
-﻿namespace DevKit.Web.Services.Jwt
+﻿namespace DevKit.Web.Services
 {
     public interface IService
     {
