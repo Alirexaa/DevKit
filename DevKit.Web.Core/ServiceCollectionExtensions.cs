@@ -2,6 +2,7 @@
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using DevKit.Web.DependencyLifecycle;
 using DevKit.Web.Services;
 using DevKit.Web.Services.Jwt;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -16,17 +17,29 @@ namespace DevKit.Web.Core
         public static IServiceCollection AddDevKitServices(this IServiceCollection services)
         {
             var assembly = Assembly.GetAssembly(typeof(IService));
-            var types = assembly.GetExportedTypes().Where(t => t.IsClass && t.IsPublic && !t.IsAbstract);
+            var types = assembly.GetExportedTypes().Where(t => t.IsClass && t.IsPublic && !t.IsAbstract && t.IsSubclassOf(typeof(IService))) ;
 
             foreach (Type type in types)
             {
-                foreach (Type iface in type.GetInterfaces())
+                foreach (var @interface in type.GetInterfaces())
                 {
-                    if (iface == typeof(IService))
+                    switch (@interface)
                     {
-                        services.AddScoped(iface, type);
+                        case IDependencySingleton:
+                            services.AddSingleton(@interface, type);
+                            break;
+                        case IDependencyScoped:
+                            services.AddScoped(@interface, type);
+                            break;
+                        case IDependencyTransient:
+                            services.AddTransient(@interface, type);
+                            break;
+                        default: throw new NotImplementedException($"{@interface} service does not Implement DependencyLifecycle interfaces ");
                     }
                 }
+                
+
+
             }
 
             return services;
