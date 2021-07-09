@@ -4,37 +4,41 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
 namespace DevKit.Web.Services.Jwt
 {
-    public class JwtService : IJwtService
-    {
-        private readonly JwtSetting _settings;
+    public class JwtService<TUser> : IJwtService where TUser : class
 
-        public JwtService(IOptionsSnapshot<JwtSetting> settings)
+    {
+        protected  SignInManager<TUser> SignInManager { get; }
+        protected  JwtSetting Settings {get;}
+
+        public JwtService(IOptionsSnapshot<JwtSetting> settings, SignInManager<TUser> signInManager)
         {
-            _settings = settings.Value;
+            SignInManager = signInManager;
+            Settings = settings.Value;
         }
 
-        public async Task<string> GenerateToken<TUser>(TUser user)
+        public async Task<string> GenerateToken(TUser user )
         {
-            var secretKey = Encoding.UTF8.GetBytes(_settings.SecretKey); // longer that 16 character
+            var secretKey = Encoding.UTF8.GetBytes(Settings.SecretKey); // longer that 16 character
             var signingCredentials = new SigningCredentials(new SymmetricSecurityKey(secretKey),SecurityAlgorithms.HmacSha256Signature);
 
-            var encryptionkey = Encoding.UTF8.GetBytes(_settings.EncryptionKey); //must be 16 character
+            var encryptionkey = Encoding.UTF8.GetBytes(Settings.EncryptionKey); //must be 16 character
             var encryptingCredentials = new EncryptingCredentials(new SymmetricSecurityKey(encryptionkey),SecurityAlgorithms.Aes128CbcHmacSha256);
             var claims = await _getClaimsAsync(user);
 
             var securityTokenDescriptor = new SecurityTokenDescriptor
             {
                 IssuedAt = DateTime.Now,
-                Expires = DateTime.Now.AddMinutes(_settings.ExpirationMinutes),
-                NotBefore = DateTime.Now.AddMinutes(_settings.NotBeforeMinutes),
+                Expires = DateTime.Now.AddMinutes(Settings.ExpirationMinutes),
+                NotBefore = DateTime.Now.AddMinutes(Settings.NotBeforeMinutes),
                 Subject = new ClaimsIdentity(claims),
-                Audience = _settings.Audience,
-                Issuer = _settings.Issuer,
+                Audience = Settings.Audience,
+                Issuer = Settings.Issuer,
                 EncryptingCredentials = encryptingCredentials,
                 SigningCredentials = signingCredentials,
             };
@@ -49,11 +53,11 @@ namespace DevKit.Web.Services.Jwt
             return securityToken.ToString();
         }
 
-        public  async Task<IEnumerable<Claim>> _getClaimsAsync<TUser>(TUser user)
+        public  async Task<IEnumerable<Claim>> _getClaimsAsync(TUser user)
         {
-            //var result = await signInManager.ClaimsFactory.CreateAsync(user);
+            var result = await SignInManager.ClaimsFactory.CreateAsync(user);
             //add custom claims
-            //var list = new List<Claim>(result.Claims);
+            var list = new List<Claim>(result.Claims);
             //list.Add(new Claim(ClaimTypes.MobilePhone, "09123456987"));
 
             //JwtRegisteredClaimNames.Sub
@@ -71,7 +75,7 @@ namespace DevKit.Web.Services.Jwt
             //foreach (var role in roles)
             //    list.Add(new Claim(ClaimTypes.Role, role.Name));
 
-            return new List<Claim>();
+            return list;
         }
     }
 }

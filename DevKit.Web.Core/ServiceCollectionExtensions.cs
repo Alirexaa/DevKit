@@ -8,16 +8,19 @@ using DevKit.Web.Services.Jwt;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 
 namespace DevKit.Web.Core
 {
-    
-   public static class ServiceCollectionExtensions
+    public static class ServiceCollectionExtensions
     {
         public static IServiceCollection AddDevKitServices(this IServiceCollection services)
         {
             var assembly = Assembly.GetAssembly(typeof(IService));
-            var types = assembly.GetExportedTypes().Where(t => t.IsClass && t.IsPublic && !t.IsAbstract && t.IsSubclassOf(typeof(IService))) ;
+            var types = assembly.GetExportedTypes().Where(t =>
+                t.IsClass && t.IsPublic && !t.IsAbstract && t.IsSubclassOf(typeof(IService)));
 
             foreach (Type type in types)
             {
@@ -34,18 +37,17 @@ namespace DevKit.Web.Core
                         case IDependencyTransient:
                             services.AddTransient(@interface, type);
                             break;
-                        default: throw new NotImplementedException($"{@interface} service does not Implement DependencyLifecycle interfaces ");
+                        default:
+                            throw new NotImplementedException(
+                                $"{@interface} service does not Implement DependencyLifecycle interfaces ");
                     }
                 }
-                
-
-
             }
 
             return services;
         }
 
-        public static IServiceCollection AddJwtAuthentication(this IServiceCollection services,JwtSetting jwtSettings)
+        public static IServiceCollection AddJwtAuthentication(this IServiceCollection services, JwtSetting jwtSettings)
         {
             services.AddAuthentication(options =>
             {
@@ -132,9 +134,36 @@ namespace DevKit.Web.Core
                 //        //return Task.CompletedTask;
                 //    }
                 //};
-
-
             });
+
+            return services;
+        }
+
+        public static IServiceCollection AddIdentity<TUser, TRole, TContext>(this IServiceCollection services, IdentitySettings identitySettings)
+            where TContext : DbContext where TUser : class where TRole : class
+        {
+            services.AddIdentity<TUser, TRole>(options =>
+                {
+                    //Password Settings
+                    options.Password.RequireDigit = identitySettings.PasswordRequireDigit;
+                    options.Password.RequiredLength = identitySettings.PasswordRequiredLength;
+                    options.Password.RequireNonAlphanumeric = identitySettings.PasswordRequireNonAlphanumeric; //#@!
+                    options.Password.RequireUppercase = identitySettings.PasswordRequireUppercase;
+                    options.Password.RequireLowercase = identitySettings.PasswordRequireLowercase;
+
+                    //UserName Settings
+                    options.User.RequireUniqueEmail = identitySettings.RequireUniqueEmail;
+
+                    //Singin Settings
+                    //options.SignIn.RequireConfirmedEmail = false;
+                    //options.SignIn.RequireConfirmedPhoneNumber = false;
+
+                    //Lockout Settings
+                    //options.Lockout.MaxFailedAccessAttempts = 5;
+                    //options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);
+                    //options.Lockout.AllowedForNewUsers = false;
+                }).AddEntityFrameworkStores<TContext>()
+                .AddDefaultTokenProviders();
 
             return services;
         }
